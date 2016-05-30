@@ -17,9 +17,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void startAnim(View v){
+        if (AnimPopup.getInstance(MainActivity.this).isShowing())return;
         Log.i("v","v:"+v.getX()+" "+v.getY());
         AnimPopup.getInstance(MainActivity.this)
-                .setMsg(" + 1 ")
+                .setMsg("啊哒哒哒哒。。。")
                 .setTextColor(Color.RED)
                 .showOnTop(v)
                 .show();

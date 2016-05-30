@@ -9,7 +9,10 @@ import android.graphics.drawable.ColorDrawable;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateInterpolator;
 import android.widget.PopupWindow;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 /**
@@ -23,6 +26,8 @@ public class AnimPopup extends PopupWindow {
     int[] location = new int[2];
     private static AnimPopup instance=null;
     private PropertyValuesHolder pvhX,pvhY;
+    private int w,h;
+    private int mDistance=200;
 
     public static synchronized AnimPopup getInstance(Context context){
         if (instance==null) instance=new AnimPopup(context);
@@ -37,20 +42,63 @@ public class AnimPopup extends PopupWindow {
 
     private void init(Context context) {
         mContext=context;
-        mTextView=new TextView(mContext);
-        mTextView.setGravity(Gravity.CENTER);
-        mTextView.setTextSize(20);
-//        mTextView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-        setFocusable(true);
-        setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        w = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        h = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        initTextView();
 
+        reSetPopupWH();
+
+        setFocusable(false);
+        setTouchable(false);
+        setOutsideTouchable(false);
+        setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+//        setBackgroundDrawable(mContext.getResources().getDrawable(R.drawable.shape));
         pvhX = PropertyValuesHolder.ofFloat("alpha", 1f,
-                0.0f, 0f);
+                0.0f, 0.0f);
 
     }
 
+    private void initTextView() {
+        RelativeLayout layout = new RelativeLayout(mContext);
+        RelativeLayout.LayoutParams params =
+                new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,
+                        RelativeLayout.LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        mTextView=new TextView(mContext);
+        mTextView.setGravity(Gravity.BOTTOM);
+        mTextView.setText(" + 1 ");
+
+        mTextView.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(mTextView);
+        setContentView(layout);
+    }
+
+
+    public AnimPopup setDistance(int distance){
+        this.mDistance=distance;
+        return this;
+    }
+
+    private void reSetPopupWH(){
+        w = (int) mTextView.getPaint().measureText(mTextView.getText().toString());
+        setWidth(w);
+        setHeight(mDistance + getTextViewHeight(mTextView, w));
+        Log.i("mTextView",mTextView.getMeasuredWidth()+" "+mTextView.getMeasuredHeight());
+    }
+
+    private static int getTextViewHeight(TextView textView, int width) {
+        int widthMeasureSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.AT_MOST);
+        int heightMeasureSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        textView.measure(widthMeasureSpec, heightMeasureSpec);
+        return textView.getMeasuredHeight();
+    }
+
+
     public AnimPopup setMsg(String msg){
+        if (mTextView==null) initTextView();
         mTextView.setText(msg);
+        reSetPopupWH();
         return this;
     }
 
@@ -59,16 +107,16 @@ public class AnimPopup extends PopupWindow {
         return this;
     }
 
+
     public AnimPopup showOnTop(View view){
         this.v=view;
+        mTextView.setY(v.getPivotY());
         v.getLocationOnScreen(location);
-        setHeight(v.getHeight()); setWidth(v.getWidth());
-        Log.i("location",location[0]+" "+location[1]);
         Log.i("height width",getHeight()+" "+getWidth());
-        Log.i("px py",v.getPivotX()+" "+v.getPivotY());
-        showAtLocation(v, Gravity.NO_GRAVITY, location[0], location[1]-getHeight()/2);
-        pvhY = PropertyValuesHolder.ofFloat("y",mTextView.getPivotY(),
-                mTextView.getPivotY()-v.getHeight(),  mTextView.getPivotY());
+        Log.i("px py",mTextView.getPivotX()+" "+mTextView.getPivotY());
+        showAtLocation(v, Gravity.NO_GRAVITY, location[0], location[1]-getHeight());
+        pvhY = PropertyValuesHolder.ofFloat("y",v.getPivotY(),
+                v.getPivotY()-mDistance/2,  v.getPivotY());
         return this;
     }
     public AnimPopup showOnBottom(View view){
@@ -99,10 +147,11 @@ public class AnimPopup extends PopupWindow {
     }
 
     public void show(){
-        setContentView(mTextView);
+//        setContentView(mTextView);
 
         ObjectAnimator objectAnimator=ObjectAnimator.ofPropertyValuesHolder(getContentView(),pvhX,pvhY)
                 .setDuration(1500);
+        objectAnimator.setInterpolator(new AccelerateInterpolator());
         objectAnimator.start();
         objectAnimator.addListener(new Animator.AnimatorListener() {
             @Override
