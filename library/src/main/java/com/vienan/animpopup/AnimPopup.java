@@ -9,7 +9,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
@@ -18,7 +17,7 @@ import android.widget.TextView;
 /**
  * Created by vienan on 16/5/29.
  */
-public class AnimPopup extends PopupWindow {
+public class AnimPopup extends PopupWindow implements Animator.AnimatorListener{
 
     TextView mTextView;
     Context mContext;
@@ -28,12 +27,14 @@ public class AnimPopup extends PopupWindow {
     private PropertyValuesHolder pvhX,pvhY;
     private int w,h;
     private int mDistance=200;
+    private ObjectAnimator objectAnimator;
+    private boolean hasChanged=false;
 
     public static synchronized AnimPopup getInstance(Context context){
         if (instance==null) instance=new AnimPopup(context);
         return instance;
     }
-    public AnimPopup(Context context){
+    private AnimPopup(Context context){
         super(context);
 
         init(context);
@@ -46,8 +47,10 @@ public class AnimPopup extends PopupWindow {
         h = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
         initTextView();
 
-        reSetPopupWH();
-
+//        reSetPopupWH();
+        mTextView.measure(w, h);
+        setWidth(mTextView.getMeasuredWidth());
+        setHeight(mDistance + mTextView.getMeasuredHeight());
         setFocusable(false);
         setTouchable(false);
         setOutsideTouchable(false);
@@ -55,36 +58,19 @@ public class AnimPopup extends PopupWindow {
 //        setBackgroundDrawable(mContext.getResources().getDrawable(R.drawable.shape));
         pvhX = PropertyValuesHolder.ofFloat("alpha", 1f,
                 0.0f, 0.0f);
-
-    }
-
-    private void initTextView() {
-        RelativeLayout layout = new RelativeLayout(mContext);
-        RelativeLayout.LayoutParams params =
-                new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,
-                        RelativeLayout.LayoutParams.WRAP_CONTENT);
-        params.addRule(RelativeLayout.CENTER_HORIZONTAL);
-        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-        mTextView=new TextView(mContext);
-        mTextView.setGravity(Gravity.BOTTOM);
-        mTextView.setText(" + 1 ");
-
-        mTextView.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT));
-        layout.addView(mTextView);
-        setContentView(layout);
     }
 
 
-    public AnimPopup setDistance(int distance){
+    private AnimPopup setDistance(int distance){
         this.mDistance=distance;
         return this;
     }
 
-    private void reSetPopupWH(){
+    private void reSetPopupWH() {
         w = (int) mTextView.getPaint().measureText(mTextView.getText().toString());
         setWidth(w);
         setHeight(mDistance + getTextViewHeight(mTextView, w));
-        Log.i("mTextView",mTextView.getMeasuredWidth()+" "+mTextView.getMeasuredHeight());
+        Log.i("mTextView", mTextView.getMeasuredWidth() + " " + mTextView.getMeasuredHeight() + " " + mTextView.getX() + " " + mTextView.getY());
     }
 
     private static int getTextViewHeight(TextView textView, int width) {
@@ -96,7 +82,6 @@ public class AnimPopup extends PopupWindow {
 
 
     public AnimPopup setMsg(String msg){
-        if (mTextView==null) initTextView();
         mTextView.setText(msg);
         reSetPopupWH();
         return this;
@@ -107,79 +92,95 @@ public class AnimPopup extends PopupWindow {
         return this;
     }
 
+    private void initTextView() {
+        RelativeLayout layout = new RelativeLayout(mContext);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        mTextView=new TextView(mContext);
+        mTextView.setGravity(Gravity.BOTTOM);
+        mTextView.setLayoutParams(params);
+        layout.addView(mTextView);
+        setContentView(layout);
+    }
 
     public AnimPopup showOnTop(View view){
         this.v=view;
-        mTextView.setY(v.getPivotY());
         v.getLocationOnScreen(location);
+        hasChanged=true;
         Log.i("height width",getHeight()+" "+getWidth());
-        Log.i("px py",mTextView.getPivotX()+" "+mTextView.getPivotY());
-        showAtLocation(v, Gravity.NO_GRAVITY, location[0], location[1]-getHeight());
-        pvhY = PropertyValuesHolder.ofFloat("y",v.getPivotY(),
-                v.getPivotY()-mDistance/2,  v.getPivotY());
+        Log.i("px py",v.getPivotX()+" "+v.getPivotY());
+        showAtLocation(v, Gravity.NO_GRAVITY, location[0]+v.getWidth()/2-getWidth()/2, location[1]-getHeight());
+        pvhY = PropertyValuesHolder.ofFloat("y",getHeight()/2,
+                -mDistance/2,  getHeight()/2);
         return this;
     }
     public AnimPopup showOnBottom(View view){
         this.v=view;
         v.getLocationOnScreen(location);
-
-        pvhY = PropertyValuesHolder.ofFloat("y", mTextView.getPivotY(),
-                mTextView.getPivotY()+200,  mTextView.getPivotY());
-        Log.i("px py",v.getPivotY()+" ");
-        showAtLocation(v, Gravity.NO_GRAVITY, location[0], location[1]);
+        hasChanged=true;
+        pvhY = PropertyValuesHolder.ofFloat("y", -getHeight()/2,
+                mDistance/2,  -getHeight()/2);
+        showAtLocation(v, Gravity.NO_GRAVITY, location[0]+v.getWidth()/2-getWidth()/2, location[1]+v.getHeight());
         return this;
     }
-    public AnimPopup showOnLeft(View view){
+    private AnimPopup showOnLeft(View view){
         this.v=view;
         v.getLocationOnScreen(location);
-        pvhY = PropertyValuesHolder.ofFloat("x", v.getPivotX()-30,
-                v.getPivotX()-120,  v.getPivotX()-30);
+        hasChanged=true;
         showAtLocation(v, Gravity.NO_GRAVITY, location[0]-getWidth(), location[1]);
+        pvhY = PropertyValuesHolder.ofFloat("x", getWidth()/2,
+                -mDistance,  getWidth()/2);
         return this;
     }
-    public AnimPopup showOnRight(View view){
+    private AnimPopup showOnRight(View view){
         this.v=view;
         v.getLocationOnScreen(location);
-        pvhY = PropertyValuesHolder.ofFloat("x", location[0]+getWidth(),
-                location[0]+getWidth()+120,  location[0]+getWidth());
+        hasChanged=true;
+        pvhY = PropertyValuesHolder.ofFloat("x", -getWidth()/2,
+                mDistance,  -getWidth()/2);
         showAtLocation(v, Gravity.NO_GRAVITY, location[0]+getWidth(), location[1]);
         return this;
     }
 
-    public void show(){
-//        setContentView(mTextView);
-
-        ObjectAnimator objectAnimator=ObjectAnimator.ofPropertyValuesHolder(getContentView(),pvhX,pvhY)
+    ObjectAnimator createAnimator(){
+        objectAnimator=ObjectAnimator.ofPropertyValuesHolder(getContentView(),pvhX,pvhY)
                 .setDuration(1500);
         objectAnimator.setInterpolator(new AccelerateInterpolator());
+        objectAnimator.addListener(this);
+        hasChanged=false;
+        return objectAnimator;
+    }
+
+    public void show(){
+        if (objectAnimator==null||hasChanged)
+            objectAnimator=createAnimator();
         objectAnimator.start();
-        objectAnimator.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animator) {
-            }
-
-            @Override
-            public void onAnimationEnd(Animator animator) {
-//                if (popupWindow.isShowing()) popupWindow.dismiss();
-                mTextView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        dismiss();
-                    }
-                });
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animator) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animator) {
-
-            }
-        });
 
     }
 
+    @Override
+    public void onAnimationStart(Animator animation) {
+
+    }
+
+    @Override
+    public void onAnimationEnd(Animator animation) {
+        mTextView.post(new Runnable() {
+            @Override
+            public void run() {
+                dismiss();
+            }
+        });
+    }
+
+    @Override
+    public void onAnimationCancel(Animator animation) {
+
+    }
+
+    @Override
+    public void onAnimationRepeat(Animator animation) {
+
+    }
 }
